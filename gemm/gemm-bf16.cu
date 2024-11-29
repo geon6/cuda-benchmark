@@ -19,13 +19,8 @@ int K = 1536;
 int device_id = 0;
 
 // A40的性能
-double fp16_gflops = 149.7 * 1024.0;
 double bf16_gflops = 149.7 * 1024.0;
-double fp32_gflops = 74.8 * 1024.0;
-double int8_gflops = 299.3 * 1024.0;
-double fp16_tflops = 149.7;
 double bf16_tflops = 149.7;
-double int8_tflops = 299.3;
 
 // 记录最好的算法, layout
 double best_tflops = 0.0;
@@ -111,19 +106,26 @@ void test(const PrecisionConfig& config) {
 }
 
 int main(int argc, char** argv) {
-  argparse::ArgumentParser program("gemm");
-  program.add_argument("--append").flag();  // append模式不会输出csv第一行
+  argparse::ArgumentParser program("gemm-bf16");
+
+  // append模式不会输出csv第一行
+  program.add_argument("--append")
+      .flag()
+      .help("output the first line of csv file?");
   program.add_argument("-m").default_value(512).store_into(M).help("set m");
   program.add_argument("-k").default_value(512).store_into(K).help("set k");
   program.add_argument("-n").default_value(512).store_into(N).help("set n");
-  program.add_argument("--device_id").default_value(0).store_into(device_id);
+  program.add_argument("--device_id")
+      .default_value(0)
+      .store_into(device_id)
+      .help("set the device id");
   program.parse_args(argc, argv);
 
   PrecisionConfig bf16 = {
       .func_name = "cublasGemmEx",
       .cudaType = CUDA_R_16F,
       .cublasType = CUBLAS_COMPUTE_32F,
-      .bytesPerElement = 2,
+      .bytesPerElement = sizeof(__nv_bfloat16),
       .type_name = "bf16",
       .NUM_ITERATIONS = 100,
       .WARMUP_ITERATIONS = 10,
@@ -133,7 +135,8 @@ int main(int argc, char** argv) {
   };
 
   if (program["--append"] == false)
-    std::cout << "func_name,dtype,algo,layout_a,layout_b,TOPS,ratio" << std::endl;
+    std::cout << "func_name,dtype,algo,layout_a,layout_b,TOPS,ratio"
+              << std::endl;
 
   for (int layout_a = 0; layout_a <= 1; layout_a++) {
     bf16.transa = (cublasOperation_t)layout_a;

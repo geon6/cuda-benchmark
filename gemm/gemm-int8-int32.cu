@@ -3,6 +3,7 @@
 // Licensed under the Apache License, Version 2.0 (the "License")
 
 #include <cublas_v2.h>
+#include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
 #include <argparse.hpp>
@@ -17,8 +18,8 @@ int K = 7168;
 int device_id = 0;
 
 // A40的性能
-double fp32_gflops = 74.8 * 1024.0;
-double fp32_tflops = 74.8;
+double int8_gflops = 299.3 * 1024.0;
+double int8_tflops = 299.3;
 
 // 记录最好的算法, layout
 double best_tflops = 0.0;
@@ -39,8 +40,8 @@ struct PrecisionConfig {
 
 void test(const PrecisionConfig& config) {
   cudaSetDevice(device_id);
-  float *d_A, *d_B;
-  float* d_C;
+  int8_t *d_A, *d_B;
+  int32_t* d_C;
   cudaMallocManaged(&d_A, M * K * config.bytesPerElement);
   cudaMallocManaged(&d_B, K * N * config.bytesPerElement);
   cudaMallocManaged(&d_C, M * N * config.bytesPerElement);
@@ -55,7 +56,7 @@ void test(const PrecisionConfig& config) {
     cublasGemmEx(handle, config.transa, config.transb, M, N, K, &alpha, d_A,
                  config.cudaType, (config.transa == CUBLAS_OP_N ? M : K), d_B,
                  config.cudaType, (config.transb == CUBLAS_OP_N ? K : N), &beta,
-                 d_C, config.cudaType, M, config.cublasType, config.algo);
+                 d_C, CUDA_R_32I, M, config.cublasType, config.algo);
   }
 
   cudaError_t syncError = cudaDeviceSynchronize();
@@ -69,7 +70,7 @@ void test(const PrecisionConfig& config) {
     cublasGemmEx(handle, config.transa, config.transb, M, N, K, &alpha, d_A,
                  config.cudaType, (config.transa == CUBLAS_OP_N ? M : K), d_B,
                  config.cudaType, (config.transb == CUBLAS_OP_N ? K : N), &beta,
-                 d_C, config.cudaType, M, config.cublasType, config.algo);
+                 d_C, CUDA_R_32I, M, config.cublasType, config.algo);
   }
   syncError = cudaDeviceSynchronize();
   auto end = std::chrono::high_resolution_clock::now();
@@ -85,7 +86,7 @@ void test(const PrecisionConfig& config) {
   double ops = 2.0 * M * N * K * config.NUM_ITERATIONS;
   double OPS = ops / time_second;
   double TOPS = OPS / 1.0e12;
-  double ratio = TOPS / fp32_tflops;
+  double ratio = TOPS / int8_tflops;
 
   if (TOPS > best_tflops) {
     best_tflops = TOPS;
@@ -106,7 +107,7 @@ void test(const PrecisionConfig& config) {
 }
 
 int main(int argc, char** argv) {
-  argparse::ArgumentParser program("gemm-fp32");
+  argparse::ArgumentParser program("gemm-int8-int32");
 
   // append模式不会输出csv第一行
   program.add_argument("--append")
@@ -121,12 +122,12 @@ int main(int argc, char** argv) {
       .help("set the device id");
   program.parse_args(argc, argv);
 
-  PrecisionConfig fp32 = {
+  PrecisionConfig int8 = {
       .func_name = "cublasGemmEx",
-      .cudaType = CUDA_R_32F,
-      .cublasType = CUBLAS_COMPUTE_32F,
-      .bytesPerElement = sizeof(float),
-      .type_name = "fp32",
+      .cudaType = CUDA_R_8I,
+      .cublasType = CUBLAS_COMPUTE_32I,
+      .bytesPerElement = sizeof(int8_t),
+      .type_name = "int8",
       .NUM_ITERATIONS = 100,
       .WARMUP_ITERATIONS = 10,
       // .transa = CUBLAS_OP_N,
@@ -139,23 +140,23 @@ int main(int argc, char** argv) {
               << std::endl;
 
   for (int layout_a = 0; layout_a <= 1; layout_a++) {
-    fp32.transa = (cublasOperation_t)layout_a;
+    int8.transa = (cublasOperation_t)layout_a;
     for (int layout_b = 0; layout_b <= 1; layout_b++) {
-      fp32.transb = (cublasOperation_t)layout_b;
+      int8.transb = (cublasOperation_t)layout_b;
       for (int i = -1; i <= 23; i++) {
-        fp32.algo = (cublasGemmAlgo_t)i;
-        test(fp32);
+        int8.algo = (cublasGemmAlgo_t)i;
+        test(int8);
       }
 
       for (int i = 99; i <= 115; i++) {
-        fp32.algo = (cublasGemmAlgo_t)i;
-        test(fp32);
+        int8.algo = (cublasGemmAlgo_t)i;
+        test(int8);
       }
     }
   }
 
   std::cout << "best tflops: " << best_tflops << "("
-            << best_tflops / fp32_tflops << ")" << ", best algo: " << best_algo
+            << best_tflops / int8_tflops << ")" << ", best algo: " << best_algo
             << ", best layout a: " << best_layout_a
             << ", best layout b: " << best_layout_b << std::endl;
 
