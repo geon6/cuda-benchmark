@@ -49,8 +49,8 @@ void test(const PrecisionConfig& config) {
   cublasHandle_t handle;
   cublasCreate(&handle);
 
-  float alpha = 1.0;
-  float beta = 0.0;
+  int alpha = 1;
+  int beta = 0;
 
   for (int i = 0; i < config.WARMUP_ITERATIONS; ++i) {
     cublasGemmEx(handle, config.transa, config.transb, M, N, K, &alpha, d_A,
@@ -68,9 +68,8 @@ void test(const PrecisionConfig& config) {
 
   for (int i = 0; i < config.NUM_ITERATIONS; ++i) {
     cublasGemmEx(handle, config.transa, config.transb, M, N, K, &alpha, d_A,
-                 config.cudaType, (config.transa == CUBLAS_OP_N ? M : K), d_B,
-                 config.cudaType, (config.transb == CUBLAS_OP_N ? K : N), &beta,
-                 d_C, CUDA_R_32I, M, config.cublasType, config.algo);
+                 config.cudaType, K, d_B, config.cudaType, K, &beta, d_C,
+                 CUDA_R_32I, M, config.cublasType, config.algo);
   }
   syncError = cudaDeviceSynchronize();
   auto end = std::chrono::high_resolution_clock::now();
@@ -97,7 +96,7 @@ void test(const PrecisionConfig& config) {
 
   std::cout << config.func_name << "," << config.type_name << "," << config.algo
             << "," << config.transa << "," << config.transb << "," << TOPS
-            << "," << ratio << std::endl;
+            << "," << ratio << "," << M << "," << K << "," << N << std::endl;
 
   cudaFree(d_A);
   cudaFree(d_B);
@@ -130,29 +129,23 @@ int main(int argc, char** argv) {
       .type_name = "int8",
       .NUM_ITERATIONS = 100,
       .WARMUP_ITERATIONS = 10,
-      // .transa = CUBLAS_OP_N,
-      // .transb = CUBLAS_OP_T,
+      .transa = CUBLAS_OP_T,
+      .transb = CUBLAS_OP_N,
       // .algo = CUBLAS_GEMM_DEFAULT_TENSOR_OP
   };
 
   if (program["--append"] == false)
-    std::cout << "func_name,dtype,algo,layout_a,layout_b,TOPS,ratio"
+    std::cout << "func_name,dtype,algo,layout_a,layout_b,TOPS,ratio,m,k,n"
               << std::endl;
 
-  for (int layout_a = 0; layout_a <= 1; layout_a++) {
-    int8.transa = (cublasOperation_t)layout_a;
-    for (int layout_b = 0; layout_b <= 1; layout_b++) {
-      int8.transb = (cublasOperation_t)layout_b;
-      for (int i = -1; i <= 23; i++) {
-        int8.algo = (cublasGemmAlgo_t)i;
-        test(int8);
-      }
+  for (int i = -1; i <= 23; i++) {
+    int8.algo = (cublasGemmAlgo_t)i;
+    test(int8);
+  }
 
-      for (int i = 99; i <= 115; i++) {
-        int8.algo = (cublasGemmAlgo_t)i;
-        test(int8);
-      }
-    }
+  for (int i = 99; i <= 115; i++) {
+    int8.algo = (cublasGemmAlgo_t)i;
+    test(int8);
   }
 
   std::cout << "best tflops: " << best_tflops << "("

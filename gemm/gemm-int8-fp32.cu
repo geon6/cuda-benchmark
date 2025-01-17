@@ -96,7 +96,7 @@ void test(const PrecisionConfig& config) {
 
   std::cout << config.func_name << "," << config.type_name << "," << config.algo
             << "," << config.transa << "," << config.transb << "," << TOPS
-            << "," << ratio << std::endl;
+            << "," << ratio << "," << M << "," << K << "," << N << std::endl;
 
   cudaFree(d_A);
   cudaFree(d_B);
@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
   };
 
   if (program["--append"] == false)
-    std::cout << "func_name,dtype,algo,layout_a,layout_b,TOPS,ratio"
+    std::cout << "func_name,dtype,algo,layout_a,layout_b,TOPS,ratio,m,k,n"
               << std::endl;
 
   for (int layout_a = 0; layout_a <= 1; layout_a++) {

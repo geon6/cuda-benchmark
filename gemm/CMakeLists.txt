@@ -12,3 +12,6 @@ target_link_libraries(gemm-int8-fp32 PRIVATE cudart cublas cublasLt nvidia-ml)
 
 add_executable(gemm-int8-int32 gemm-int8-int32.cu)
 target_link_libraries(gemm-int8-int32 PRIVATE cudart cublas cublasLt nvidia-ml)
+
+add_executable(test-ans-int8-int32 test-ans-int8-int32.cu)
+target_link_libraries(test-ans-int8-int32 PRIVATE cudart cublas cublasLt nvidia-ml)

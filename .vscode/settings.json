@@ -84,6 +84,7 @@
     "semaphore": "cpp",
     "typeinfo": "cpp",
     "text_encoding": "cpp",
-    "__nullptr": "cpp"
+    "__nullptr": "cpp",
+    "fstream": "cpp"
   }
 }

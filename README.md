@@ -7,7 +7,11 @@
 
 > 数据来源于[NVIDIA A40 data sheet](https://images.nvidia.com/content/Solutions/data-center/a40/nvidia-a40-datasheet.pdf)
 
-## Executable
+# Executable
+## GEMM
+命令行参数: 
+* -m, -k, -n: 矩阵的形状, 
+可执行文件: 
 * gemm-bf16: 输入数据, 输出数据都是bf16
 * gemm-fp16: 输入数据, 输出数据都是bf16
 * gemm-fp32: 输入数据, 输出数据都是bf16
